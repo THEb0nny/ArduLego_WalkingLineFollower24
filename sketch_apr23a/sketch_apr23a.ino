@@ -24,6 +24,8 @@
 
 #define RESET_BTN_PIN 3 // Пин кнопки для старта, мягкого перезапуска
 
+#define LINE_SEN_COUNT 4 // Количество датчиков линии
+
 #define LINE_S1_PIN A0 // Пин крайнего левого датчика линии
 #define LINE_S2_PIN A1 // Пин центрального левого датчика линии
 #define LINE_S3_PIN A2 // Пин центрального правого датчика
@@ -32,12 +34,14 @@
 #define CENTRAL_LINE_SEN_COEFF 1.0 // Коэффициент для центральных датчиков линии
 #define SIDE_LINE_SEN_COEFF 3.0 // Коэффицент усиления для крайних датчиков линии
 
-byte lineSensorPins[4] = {LINE_S1_PIN, LINE_S2_PIN, LINE_S3_PIN, LINE_S4_PIN}; // Массив пинов  датчиков линии
+#define MAX_RANGE_VAL_LS 255 // Максимальное значенение диапазона для нормализации значений датчика линии
 
-int refRawWhite[4] = {38, 30, 33, 35}; // Значения белого датчиков линии
-int refRawBlack[4] = {592, 370, 440, 550}; // Значения чёрного датчиков линии
-int refRawValue[4] = {0, 0, 0, 0}; // Переменная для хранения сырых значений отражения с датчиков линии
-int refValue[4] = {0, 0, 0, 0}; // Переменная для хранения нормализованных значений отражения с датчиков линии
+byte lineSensorPins[LINE_SEN_COUNT] = {LINE_S1_PIN, LINE_S2_PIN, LINE_S3_PIN, LINE_S4_PIN}; // Массив пинов  датчиков линии
+
+int refRawWhite[LINE_SEN_COUNT] = {38, 30, 33, 35}; // Значения белого датчиков линии
+int refRawBlack[LINE_SEN_COUNT] = {592, 370, 440, 550}; // Значения чёрного датчиков линии
+int refRawValue[LINE_SEN_COUNT] = {0, 0, 0, 0}; // Переменная для хранения сырых значений отражения с датчиков линии
+int refValue[LINE_SEN_COUNT] = {0, 0, 0, 0}; // Переменная для хранения нормализованных значений отражения с датчиков линии
 
 unsigned long currTime, prevTime, loopTime; // Время
 
@@ -56,7 +60,7 @@ void setup() {
   Serial.begin(115200); // Инициализация скорости общения по монитору порта
   Serial.setTimeout(10); // Позволяет задать время ожидания данных, поступающих через последовательный интерфейс
   Serial.println();
-  for (byte i = 0; i < 4; i++) { // Настойка пина пинов датчиков линии
+  for (byte i = 0; i < LINE_SEN_COUNT; i++) { // Настойка пина пинов датчиков линии
     pinMode(lineSensorPins[i], INPUT);
   }
   motorLeft.reverse(1); // Направление вращение левого мотора
@@ -64,7 +68,7 @@ void setup() {
   motorLeft.setMinDuty(10); // Минимальный сигнал (по модулю), который будет подан на левый мотор
   motorRight.setMinDuty(10); // Минимальный сигнал (по модулю), который будет подан на левый мотор
   regulator.setDirection(REVERSE); // Направление регулирования (NORMAL/REVERSE)
-  regulator.setLimits(-255, 255); // Пределы регулятора
+  regulator.setLimits(-255, 255); // Пределы регулирования
   regulatorTmr.setPeriodMode(); // Настроем режим таймера регулирования на период
   while (millis() < 500); // Время после старта для возможности запуска, защита от перезагрузки и старта кода сразу
   if (CALIBRATION_BEFORE_START) {
@@ -78,6 +82,7 @@ void setup() {
     Serial.println("Calibrate done");
   }
   Serial.println("Ready... press btn to start");
+  PauseUntilBtnPressed("Start!"); // Ждём нажатия для старта
   regulatorTmr.start(); // Запускаем таймер цикла регулирования
   // Записываем время перед стартом loop
   currTime = millis();
@@ -94,12 +99,12 @@ void loop() {
     prevTime = currTime;
 
     // Считываем сырые значения с датчиков линии
-    for (byte i = 0; i < 4; i++) {
+    for (byte i = 0; i < LINE_SEN_COUNT; i++) {
       refRawValue[i] = analogRead(lineSensorPins[i]);
     }
 
     // Нормализует значения с датчиков линии
-    for (byte i = 0; i < 4; i++) {
+    for (byte i = 0; i < LINE_SEN_COUNT; i++) {
       refValue[i] = GetNormalizedRefValuesLineSen(refRawValue[i], refRawBlack[i], refRawWhite[i]);
     }
 
@@ -117,17 +122,27 @@ void loop() {
     
     // Для отладки значений серого
     if (PRINT_REF_RAW_LINE_SEN_DEBUG) {
-      Serial.println("rawRefLS: " + String(refRawValue[0]) + ", " + String(refRawValue[1]) + ", " + String(refRawValue[2]) + ", " + String(refRawValue[3])); // Вывод сырых значений
+      // Serial.println("rawRefLS: " + String(refRawValue[0]) + ", " + String(refRawValue[1]) + ", " + String(refRawValue[2]) + ", " + String(refRawValue[3])); // Вывод сырых значений
+      String str = "rawRefLS: ";
+      for (byte i = 0; i < LINE_SEN_COUNT; i++) {
+        if (i < LINE_SEN_COUNT - 1) str += String(refRawValue[i]) + "\t";
+        else str += String(refRawValue[i]);
+      }
+      Serial.println(str);
     }
     // Для отладки обработанных значений с датчика
     if (PRINT_REF_LINE_SEN_DEBUG) {
-      Serial.println("refLS: " + String(refValue[0]) + ", " + String(refValue[1]) + ", " + String(refValue[2]) + ", " + String(refValue[3])); // Вывод обработанных значений
+      // Serial.println("refLS: " + String(refValue[0]) + ", " + String(refValue[1]) + ", " + String(refValue[2]) + ", " + String(refValue[3])); // Вывод обработанных значений
+      String str = "refLS: ";
+      for (byte i = 0; i < LINE_SEN_COUNT; i++) {
+        if (i < LINE_SEN_COUNT - 1) str += String(refValue[i]) + "\t";
+        else str += String(refValue[i]);
+      }
+      Serial.println(str);
     }
     // Для отладки основной информации о регулировании
     if (PRINT_DT_ERR_U_DEBUG) {
-      Serial.print("loopTime: " + String(loopTime) + "\t");
-      Serial.print("error: " + String(error) + "\t");
-      Serial.println("u: " + String(u));
+      Serial.println("loopTime: " + String(loopTime) + "\terror: " + String(error) + "\tu: " + String(u));
     }
   }
 }
@@ -143,14 +158,14 @@ void MotorsControl(int dir, int speed) {
 
 // Калибровка и нормализация значений с датчика линии
 int GetNormalizedRefValuesLineSen(int rawRefLineSenVal, int blackRawRefLineS, int whiteRawRefLineS) {
-  int lineSensorVal = map(rawRefLineSenVal, blackRawRefLineS, whiteRawRefLineS, 0, 255);
-  lineSensorVal = constrain(lineSensorVal, 0, 255);
+  int lineSensorVal = map(rawRefLineSenVal, blackRawRefLineS, whiteRawRefLineS, 0, MAX_RANGE_VAL_LS);
+  lineSensorVal = constrain(lineSensorVal, 0, MAX_RANGE_VAL_LS);
   return lineSensorVal;
 }
 
 void CalibrateLineSensor() {
   // Считываем сырые значения с датчиков линии и находим максимальные и минимальные значения
-  for (byte i = 0; i < 4; i++) {
+  for (byte i = 0; i < LINE_SEN_COUNT; i++) {
     refRawValue[i] = analogRead(lineSensorPins[i]);
     if (refRawValue[i] > refRawBlack[i]) {
       refRawBlack[i] = refRawValue[i];
