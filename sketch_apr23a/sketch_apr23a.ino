@@ -47,9 +47,9 @@ unsigned long currTime, prevTime, loopTime; // Время
 
 int speed = 255; // Инициализируем переменную скорости
 
-EncButton btn(RESET_BTN_PIN, INPUT_PULLUP, LOW); // Инициализация объекта простой кнопки
+Button btn(RESET_BTN_PIN, INPUT_PULLUP, LOW); // Инициализация объекта простой кнопки
 TimerMs regulatorTmr(5); // Инициализация объекта таймера цикла регулирования в нужном количестве мс
-GyverPID regulator(3, 0, 0); // Инициализируем регулятор и устанавливаем коэффициенты регулятора
+GyverPID regulator(1, 0, 0); // Инициализируем регулятор и устанавливаем коэффициенты регулятора
 
 GMotor2<DRIVER2WIRE> motorLeft(MOT1_DIR_PIN, MOT1_PWM_PIN); // Объект левого мотора
 GMotor2<DRIVER2WIRE> motorRight(MOT2_DIR_PIN, MOT2_PWM_PIN); // Объект правого мотора
