@@ -110,7 +110,7 @@ void loop() {
 
     CheckBtnClickToReset(); // Повторно вызываем функцию опроса кнопки
 
-    float error = (refValue[1] - refValue[2]) * CENTRAL_LINE_SEN_COEFF + (refValue[0] - refValue[1]) * SIDE_LINE_SEN_COEFF; // Нахождение ошибки регулирования
+    float error = (refValue[1] - refValue[2]) * CENTRAL_LINE_SEN_COEFF + (refValue[0] - refValue[3]) * SIDE_LINE_SEN_COEFF; // Нахождение ошибки регулирования
     regulator.setpoint = error; // Передаём ошибку
 
     regulator.setDt(loopTime != 0 ? loopTime : 1); // Установка dt для регулятора
